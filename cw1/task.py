@@ -5,8 +5,6 @@ from scipy.ndimage import map_coordinates
 # CLASSES
 
 # CLASS 3D image to handle medical images with information
-
-
 class Image3D:
     def __init__(self, filepath=None, data=None, spacing=None):
         # filepath = path to .npy file
@@ -37,8 +35,6 @@ class Image3D:
         return (0, x_max), (0, y_max), (0, z_max)
 
 # CLASS RBFSpline
-
-
 class RBFSpline:
     def __init__(self):
         pass
@@ -85,6 +81,53 @@ class RBFSpline:
         K_eval = self.kernel_gaussian(query_points, control_points, sigma)
         calc_displacements = np.dot(K_eval, coeffs)
         return query_points + calc_displacements
+
+# CLASS FreeFormDeformation
+class FreeFormDeformation: #for grid generation and image warping
+    def __init__(self, nx, ny, nz, min_max_x, min_max_y, min_max_z):
+        self.nx, self.ny, self.nz, = nx, ny, nz #number of control points in each direction
+        self._generate_grid(min_max_x, min_max_y, min_max_z) #range in mm
+
+    @classmethod
+    def from_image(cls, image_obj, nx, ny, nz):
+       (min_x, max_x), (min_y, max_y), (min_z, max_z) = image_obj.get_physical_mm() #retrieving mm for image
+       return cls(nx, ny, nz, (min_x, max_x), (min_y, max_y), (min_z, max_z))
+    
+    def _generate_grid(self, range_x, range_y, range_z): #meshgrid of control points
+        x = np.linspace(range_x[0], range_x[1], self.nx) #evenly spaced nx points
+        y = np.linspace(range_y[0], range_y[1], self.ny)
+        z = np.linspace(range_z[0], range_z[1], self.nz)
+
+        Z, Y, X = np.meshgrid(z, y, x, indexing='ij') #ij ensures z, y, z
+
+        self.source_control_points = np.column_stack([Z.ravel(), Y.ravel(), X.ravel()]) #flatten to a list of (M, 3)
+        self.target_control_points = self.source_control_points.copy() #initialise target as the same as source
+
+    def random_transform_generator(self, strength=0.5): #generates randomly displaced target control points
+        noise = np.random.uniform(-1, 1, size=self.source_control_points.shape) #generate random noise between -1 and 1
+
+        mag = 10.0 * strength
+        self.target_control_points = self.source_control_points + noise * mag #scale noise against magnitude
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ###########################################################################################################################
