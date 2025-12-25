@@ -54,7 +54,7 @@ class RBFSpline:
             control_points[np.newaxis, :, :]
 
         # sq and sum differences
-        diff_sq = np.sum(diff**2, axis=2)  # (N, M)
+        diff_sq = np.sum(difference**2, axis=2)  # (N, M)
 
         # apply Gaussian formula
         K = np.exp(-diff_sq / (sigma ** 2))
@@ -87,37 +87,54 @@ class RBFSpline:
         return query_points + calc_displacements
 
 
-#################################################################################
+###########################################################################################################################
 if __name__ == "__main__":
-    print("testing 3d_image class with npy image")
+    # print("testing 3d_image class with npy image")
 
-    filename = "image_train00.npy"
+    # filename = "image_train00.npy"
 
-    try:
-        image_obj = Image3D(filepath=filename)
-        print(f"success! loaded file properly")
-        print(f"image shape(z,y,x) = {image_obj.shape}")
+    # try:
+    #     image_obj = Image3D(filepath=filename)
+    #     print(f"success! loaded file properly")
+    #     print(f"image shape(z,y,x) = {image_obj.shape}")
 
-        print(f"voxel spacing (z,y,x): {image_obj.spacing}")
+    #     print(f"voxel spacing (z,y,x): {image_obj.spacing}")
 
-        (x_range, y_range, z_range) = image_obj.get_physical_mm()
-        print(f"x range: {x_range}")
-        print(f"y range: {y_range}")
-        print(f"z range: {z_range}")
+    #     (x_range, y_range, z_range) = image_obj.get_physical_mm()
+    #     print(f"x range: {x_range}")
+    #     print(f"y range: {y_range}")
+    #     print(f"z range: {z_range}")
 
-        middle_slice_index = image_obj.shape[0] // 2
-        # give the slice data at the middle
-        slice_data = image_obj.data[middle_slice_index, :, :]
+    #     middle_slice_index = image_obj.shape[0] // 2
+    #     # give the slice data at the middle
+    #     slice_data = image_obj.data[middle_slice_index, :, :]
 
-        # plotting
-        plt.figure(figsize=(6, 6))
-        plt.imshow(slice_data, cmap='gray')
-        plt.title(f"middle slice")
-        plt.axis("off")
-        plt.show()
+    #     # plotting
+    #     plt.figure(figsize=(6, 6))
+    #     plt.imshow(slice_data, cmap='gray')
+    #     plt.title(f"middle slice")
+    #     plt.axis("off")
+    #     plt.show()
 
-    except FileNotFoundError:
-        print("couldnt find filename in directory")
+    # except FileNotFoundError:
+    #     print("couldnt find filename in directory")
 
-    except Exception as e:
-        print("an unexpected error occurred")
+    # except Exception as e:
+    #     print("an unexpected error occurred")
+
+    print("testing RBFspline")
+    # simple (random) source points
+    source_pts = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]])
+    # 5mm to the right target points
+    target_pts = np.array([[0.0, 0.0, 0.0], [15.0, 0.0, 0.0]])
+
+    rbf = RBFSpline()
+    coefficients = rbf.fit(source_pts, target_pts, sigma=10.0)
+    print("spline fitted - coefficients calculated")
+
+    test = np.array([[10.0, 0.0, 0.0]])
+    result = rbf.evaluate(test, source_pts, coefficients, sigma=10.0)
+
+    print(f"original point {test[0]}")
+    print(f"transformed point {result[0]}")
+    print("expected [15.0, 0.0, 0.0]")
