@@ -273,6 +273,29 @@ if __name__ == "__main__":
     print("saved 10 transformation plots")
 
     print("-- visualising parameter changes --")
+
+    print("-- varied kernel width (sigma) --")
+    view_z = img_object.shape[0] // 2
+    ffd_std = FreeFormDeformation.from_image(img_object, 4, 4, 4)
+    vol_sigma_low = ffd_std.random_transform(img_object, rbf, strength=0.5, sigma=5.0) #lower sigma = local influence
+    vol_sigma_high = ffd_std.random_transform(img_object, rbf, strength=0.5, sigma=50.0) #higher sigma = global influence ie stretched out and smoothed
+
+    #plot comparison
+    plt.figure(figsize=(10,5))
+    plt.subplot(1, 2, 1)
+    plt.imshow(vol_sigma_low[view_z,: ,:], cmap='gray')
+    plt.title("sigma=5.0 (local influence)")
+    plt.axis("off")
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(vol_sigma_high[view_z, :, :], cmap='gray')
+    plt.title("sigma=50.0 (global influence)")
+    plt.axis("off")
+
+    plt.savefig("param_sigma_variation.png")
+    plt.close()
+    print("saved sigma variation png")
+
     print("-- varied strength --")
     ffd_std = FreeFormDeformation.from_image(img_object, 4, 4, 4)
     vol_strength_lower = ffd_std.random_transform(
@@ -284,8 +307,25 @@ if __name__ == "__main__":
     plt.subplot(1, 2, 1)
     plt.imshow(vol_strength_lower[10, :, :], cmap='gray')
     plt.title("strength = 0.1")
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 2, 2)
     plt.imshow(vol_strength_higher[10, :, :], cmap='gray')
     plt.title("strength = 1.0")
-    plt.savefig("param_study_strength.png")
+    plt.savefig("param_strength_variation.png")
     plt.close()
+    print("saved strength variation png")
+
+    print("-- varied grid size --")
+    ffd_dense = FreeFormDeformation.from_image(img_object, 8, 8, 8) #denser grid for higher frequency deformation
+    vol_dense = ffd_dense.random_transform(img_object, rbf, strength=0.5, sigma=20.0)
+
+    plt.figure(figsize=(5,5))
+    plt.subplot(1, 2, 1)
+    plt.imshow(vol_sigma_low[view_z, :, :], cmap='gray')
+    plt.title("grid (4x4x4)")
+    plt.subplot(1, 2, 2)
+    plt.imshow(vol_dense[view_z, :, :], cmap='gray')
+    plt.title("denser grid (8x8x8)")
+    plt.savefig("grid_variation.png")
+    print("saved grid variation png")
+
+    print("all tasks complete")
