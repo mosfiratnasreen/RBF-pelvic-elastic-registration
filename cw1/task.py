@@ -271,3 +271,21 @@ if __name__ == "__main__":
     fig_joint.savefig(joint_name)
     plt.close(fig_joint)
     print("saved 10 transformation plots")
+
+    print("-- visualising parameter changes --")
+    print("-- varied strength --")
+    ffd_std = FreeFormDeformation.from_image(img_object, 4, 4, 4)
+    vol_strength_lower = ffd_std.random_transform(
+        img_object, rbf, strength=0.1, sigma=20.0)  # lower strength
+    vol_strength_higher = ffd_std.random_transform(
+        img_object, rbf, strength=1.0, sigma=20.0)  # higher strength
+
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.imshow(vol_strength_lower[10, :, :], cmap='gray')
+    plt.title("strength = 0.1")
+    plt.subplot(1, 2, 1)
+    plt.imshow(vol_strength_higher[10, :, :], cmap='gray')
+    plt.title("strength = 1.0")
+    plt.savefig("param_study_strength.png")
+    plt.close()
