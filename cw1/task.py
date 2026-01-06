@@ -5,8 +5,6 @@ from scipy.ndimage import map_coordinates
 # CLASSES
 
 # CLASS 3D image to handle medical images with information
-
-
 class Image3D:
     def __init__(self, filepath=None, data=None, spacing=None):
         # filepath = path to .npy file
@@ -305,10 +303,10 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
-    plt.imshow(vol_strength_lower[10, :, :], cmap='gray')
+    plt.imshow(vol_strength_lower[view_z, :, :], cmap='gray')
     plt.title("strength = 0.1")
     plt.subplot(1, 2, 2)
-    plt.imshow(vol_strength_higher[10, :, :], cmap='gray')
+    plt.imshow(vol_strength_higher[view_z, :, :], cmap='gray')
     plt.title("strength = 1.0")
     plt.savefig("param_strength_variation.png")
     plt.close()
@@ -326,6 +324,7 @@ if __name__ == "__main__":
     plt.imshow(vol_dense[view_z, :, :], cmap='gray')
     plt.title("denser grid (8x8x8)")
     plt.savefig("grid_variation.png")
+    plt.close()
     print("saved grid variation png")
 
     print("all tasks complete")
