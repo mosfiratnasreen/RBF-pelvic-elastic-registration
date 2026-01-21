@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import map_coordinates
 
-# CLASSES
 
+###################################################################################################################################
 # CLASS 3D image to handle medical images with information
 class Image3D:
     def __init__(self, filepath=None, data=None, spacing=None):
@@ -34,9 +34,8 @@ class Image3D:
         x_max = self.shape[2] * self.spacing[2]  # width -- columns x width
         return (0, x_max), (0, y_max), (0, z_max)
 
+###################################################################################################################################
 # CLASS RBFSpline
-
-
 class RBFSpline:
     def __init__(self):
         pass
@@ -57,6 +56,15 @@ class RBFSpline:
         # apply Gaussian formula
         K = np.exp(-diff_sq / (sigma ** 2))
         return K
+    
+    # Q6 - for this implementation, the query and control points are reshaped to (N, 1, 3) and (1, M, 3) respectively
+    # broadcasting is used to compute all the pairwise distances and returns a shape of (N, M, 3) 
+    # distances are squared and added along axis from which 
+    # the Gaussian kernel formula is then applied to the entire matrix via numpy array operations. 
+
+    # Q7 - sigma controls the spatial extent of each control point's influence. 
+    # a smaller signa results in localised deformations concentrated around the control points as opposed to a large sigma that creates global defomations
+
 
     # FUNCTION to fit the spline
     def fit(self, source_points, target_points, lambda_param=0.01, sigma=20.0):
@@ -74,6 +82,29 @@ class RBFSpline:
         # solve to find the coefficients C
         self.coeffs = np.linalg.solve(K_reg, displacements)
         return self.coeffs
+    
+    # Q1 -- no, the polynomial part is not needed for this implementation. 
+    # for some RBFs, the polynomial is needed to satisfy "conditional positive definiteness" to guaraantee solvability of the kernel matrix.
+    # since the Gaussian kernel is positive definite, the kernel matrix K is always invertible. 
+    # therefore, there is no need to include the polynomial stabiliser term that traditional RBF methods require.
+
+    # Q2 - linear algebra formula for spline fitting:
+    # [K + lambda * W^(-1)] * alpha = q_k    [equation 12, Fornefett 2001]
+    # solution: alpha = [K + lambda * W^(-1)]^(-1) @ q_k
+    # where: K = NxN kernel matrix, K[i,j] = phi(||p_i - p_j||) using Gaussian kernel
+    # alpha = coefficients to solve for
+    # q_k = target displacements -- from equation 16
+    # lambda = regularisation parameter
+    # W = diagonal weight matrix
+    # 
+    # u(x) = x + sum(alpha * phi(||x - p||)) [equation 16, Fornefett 2001]
+    # this shows the RBF is applied with identity transformation, therefore solve for (q_k - p_k) rather than absolute target positions
+    # in code: alpha = np.linalg.solve(K + lambda * I, displacements)
+
+    # Q3 - the optimal linear algebra algorithm is the Cholesky decomposition. 
+    # for compact-support RBFs, K is symmetric positive definite and sparse and Cholesky peforms ~2x faster than LU decomposition.
+    # although np.linalg.solve uses LU decomposition internally, scipy.linalg.solve with assume_a='pos' would use Cholesky.
+
 
     # FUNCTION to apply fitted spline to transformation
     def evaluate(self, query_points, control_points, coeffs, sigma=20.0):
@@ -84,9 +115,16 @@ class RBFSpline:
         calc_displacements = np.dot(K_eval, coeffs)
         return query_points + calc_displacements
 
+    # Q4 - the control points are landmarks (p_i) where the RBFs are centered during fitting.
+    # we cannot choose different points at evaluation since the transformation is a weighted sum of RBFs around the specific landmarks.
+    # changing the control points would mean that the alpha weights are not applied, producing a different transformation than fitted. 
+
+    # Q5 - we do not need lambda at evaluation stage as it is only used when solving for alpha coefficients.
+    # once the spline is fitted, the transformation only depends on the distances and weights, which already incorporates regularisation.
+
+
+###################################################################################################################################
 # CLASS FreeFormDeformation
-
-
 class FreeFormDeformation:  # for grid generation and image warping
     def __init__(self, nx, ny, nz, min_max_x, min_max_y, min_max_z):
         # number of control points in each direction
@@ -121,6 +159,16 @@ class FreeFormDeformation:  # for grid generation and image warping
         self.target_control_points = self.source_control_points + \
             noise * mag  # scale noise against magnitude
         return self.target_control_points
+    
+    # Q8 - in terms of a resonable approach to randomly displace control points, first we would consider a Gaussian distrubtion.
+    # a Gaussian distribution produces smoother deformations as opposed to a uniform distribution - helps represent natural patient variability better.
+    # to avoid image folding/tearing, the displacement scale should be relative to control point spacing and not use absolute values
+    # it is important to consider resolution impacts as flat displacement produces different results at different resolutions.
+
+    # Q9 - although smooth control point displacements produce smooth deformations, it is not guaranteed to be biophysically plausible.
+    # for true biophysical plausibility, voxel neighbourhood relationships need to be maintained to preserve topolgy.
+    # the Jacobian determinant must also be positive everywhere to prevent image folding/tearing
+    # also, since different tissue types deform differently, there must be qualitative analysis since RBF treats everything equally. 
 
     def warp_image(self, image_obj, rbf_spline, sigma=20.0):
         data = image_obj.data
@@ -156,65 +204,22 @@ class FreeFormDeformation:  # for grid generation and image warping
         warped_data = map_coordinates(
             data, sampling_coordinates, order=1, mode='nearest')  # interpolate pixel values
         return warped_data.reshape(shape)
+    
+    # Q10 - to compute a warped 3D image, first, generate the meshgrid of all voxel indices using np.arange and np.meshgrid
+    # then flatten and stack indices to Nx3 array using column_stack and ravel
+    # convert voxel indices to physical coordinates by multiplying by spacing and fit RBF spline using control points to get coefficients (alpha)
+    # evaluate the fitted spline at all physical coordinates to get transformation and convert back to voxel indices (by division)
+    # transpose coordinates to (3, N) required by map_coordinates and interpolate original image at coordinates
+    # (order=1 for linear interpolation, mode='nearest' for boundary handling) and finally reshape interpolated values back to 3D original volume shape.
 
     # random deformation
     def random_transform(self, image_obj, rbf_spline, strength=0.5, sigma=20.0):
         self.random_transform_generator(strength)
         return self.warp_image(image_obj, rbf_spline, sigma)
 
-
-###########################################################################################################################
+###################################################################################################################################
+###################################################################################################################################
 if __name__ == "__main__":
-    # print("testing 3d_image class with npy image")
-
-    # filename = "image_train00.npy"
-
-    # try:
-    #     image_obj = Image3D(filepath=filename)
-    #     print(f"success! loaded file properly")
-    #     print(f"image shape(z,y,x) = {image_obj.shape}")
-
-    #     print(f"voxel spacing (z,y,x): {image_obj.spacing}")
-
-    #     (x_range, y_range, z_range) = image_obj.get_physical_mm()
-    #     print(f"x range: {x_range}")
-    #     print(f"y range: {y_range}")
-    #     print(f"z range: {z_range}")
-
-    #     middle_slice_index = image_obj.shape[0] // 2
-    #     # give the slice data at the middle
-    #     slice_data = image_obj.data[middle_slice_index, :, :]
-
-    #     # plotting
-    #     plt.figure(figsize=(6, 6))
-    #     plt.imshow(slice_data, cmap='gray')
-    #     plt.title(f"middle slice")
-    #     plt.axis("off")
-    #     plt.show()
-
-    # except FileNotFoundError:
-    #     print("couldnt find filename in directory")
-
-    # except Exception as e:
-    #     print("an unexpected error occurred")
-
-    # print("testing RBFspline")
-    # # simple (random) source points
-    # source_pts = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]])
-    # # 5mm to the right target points
-    # target_pts = np.array([[0.0, 0.0, 0.0], [15.0, 0.0, 0.0]])
-
-    # rbf = RBFSpline()
-    # coefficients = rbf.fit(source_pts, target_pts, sigma=10.0)
-    # print("spline fitted - coefficients calculated")
-
-    # test = np.array([[10.0, 0.0, 0.0]])
-    # result = rbf.evaluate(test, source_pts, coefficients, sigma=10.0)
-
-    # print(f"original point {test[0]}")
-    # print(f"transformed point {result[0]}")
-    # print("expected [15.0, 0.0, 0.0]")
-
     print("-- starting task1 -- ")
 
     try:
@@ -269,6 +274,13 @@ if __name__ == "__main__":
     fig_joint.savefig(joint_name)
     plt.close(fig_joint)
     print("saved 10 transformation plots")
+
+    # Q11 - the combined_transforms.png plot supports the idea explored in Q9.
+    # the smooth RBF interpolation produces visually smooth deformations but are not guaranteed biophysically plausible.
+    # the anatomical structures such as bladder and prostate remain recognisable, sugggesting the topology is mostly preserved at strength=0.5
+    # however, some rows show tissue boundaries to be unnaturally stretched or compressed (rows 4,9,10 at z=31).
+    # the edge slices show more visible warping artefacts than central slices 
+    # and there are no obvious image folding/tearing using these parameter settings.
 
     print("-- visualising parameter changes --")
 
@@ -326,5 +338,12 @@ if __name__ == "__main__":
     plt.savefig("grid_variation.png")
     plt.close()
     print("saved grid variation png")
+
+    # Q12 - by varying the value of sigma, we can see that a higher value (50.0) results in smoother, more global deformation
+    # where structures appear more uniformly shifted, as opposed to sharper deformations visible around anatomical edges.
+    # increasing the strength from 0.1 to 1.0 results in more noticeable warping. the structures are visibly displaced but still recognisable.
+    # when testing a range of strengths, higher values > 1.0 lead to image folding/tearing.
+    # additionally, adding more control points helped achieve fine-grained control but the deformations appeared similar 
+    # due to the existing values of strength and sigma.
 
     print("all tasks complete")
